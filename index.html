@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ كاشف الانفجار — Live + Pre-Breakout + سعر لحظي</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif; background: #0a0e14; color: #e6edf3; padding: 12px; min-height: 100vh; }
+
+  .header { text-align: center; margin-bottom: 12px; padding: 12px; background: linear-gradient(135deg, #1a0f1f, #0a0e14); border-radius: 12px; border: 1px solid #30363d; position: relative; overflow: hidden; }
+  .header::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, #f8514933, transparent 70%); animation: rotate 8s linear infinite; }
+  @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .header h1 { font-size: 17px; color: #f0b90b; margin-bottom: 4px; position: relative; z-index: 1; }
+  .header p { font-size: 11px; color: #8b949e; position: relative; z-index: 1; }
+
+  .main-tabs { display: flex; gap: 6px; margin-bottom: 14px; background: #161b22; padding: 6px; border-radius: 12px; border: 1px solid #30363d; }
+  .main-tab { flex: 1; padding: 12px 8px; text-align: center; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: bold; color: #8b949e; transition: 0.2s; border: 2px solid transparent; }
+  .main-tab.active { background: linear-gradient(135deg, #f0b90b, #f85149); color: white; border-color: #f0b90b; box-shadow: 0 0 15px #f0b90b55; }
+  .main-tab .emoji { display: block; font-size: 20px; margin-bottom: 3px; }
+  .main-tab .label { font-size: 11px; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #161b22; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 10px; font-size: 11px; }
+  .live-dot { display: inline-block; width: 8px; height: 8px; background: #3fb950; border-radius: 50%; margin-left: 6px; animation: pulse-dot 1.5s infinite; }
+  .live-dot.off { background: #f85149; animation: none; }
+  @keyframes pulse-dot { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 #3fb95099; } 50% { opacity: 0.6; box-shadow: 0 0 0 8px transparent; } }
+
+  .controls { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  select, button, input { padding: 10px; border-radius: 8px; border: 1px solid #30363d; background: #161b22; color: #e6edf3; font-size: 12px; font-family: inherit; flex: 1; min-width: 80px; }
+  button { cursor: pointer; font-weight: bold; transition: 0.2s; }
+  button:hover:not(:disabled) { transform: translateY(-1px); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-start { background: linear-gradient(135deg, #238636, #3fb950); border: none; color: white; }
+  .btn-stop { background: linear-gradient(135deg, #f85149, #d29922); border: none; color: white; }
+  .btn-test { background: linear-gradient(135deg, #a371f7, #f85149); border: none; color: white; }
+  .btn-notif { background: linear-gradient(135deg, #1f6feb, #58a6ff); border: none; color: white; }
+
+  .stats-panel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+  .stats-panel.single { grid-template-columns: 1fr; }
+  .stat-box { background: #161b22; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #30363d; }
+  .stat-box-label { font-size: 9px; color: #8b949e; margin-bottom: 3px; }
+  .stat-box-value { font-size: 16px; font-weight: bold; }
+  .stat-box-value.green { color: #3fb950; }
+  .stat-box-value.red { color: #f85149; }
+  .stat-box-value.blue { color: #58a6ff; }
+  .stat-box-value.yellow { color: #f0b90b; }
+  .stat-box-value.purple { color: #a371f7; }
+
+  /* ═══ لوحة الأسعار اللحظية ═══ */
+  .live-price-panel { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 10px; margin-bottom: 12px; }
+  .live-price-panel h3 { font-size: 12px; color: #f0b90b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .live-price-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; max-height: 320px; overflow-y: auto; }
+  .live-price-item { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 8px; font-size: 11px; transition: 0.2s; }
+  .live-price-item.rising { border-color: #3fb950; background: #0f2a1a; }
+  .live-price-item.falling { border-color: #f85149; background: #2a0f0f; }
+  .live-price-item .lp-symbol { font-weight: bold; color: #e6edf3; margin-bottom: 3px; display: flex; justify-content: space-between; }
+  .live-price-item .lp-price { font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold; color: #58a6ff; }
+  .live-price-item .lp-price.up { color: #3fb950; }
+  .live-price-item .lp-price.down { color: #f85149; }
+  .live-price-item .lp-change { font-size: 10px; margin-top: 3px; display: flex; justify-content: space-between; color: #8b949e; }
+  .live-price-item .lp-change span.up { color: #3fb950; font-weight: bold; }
+  .live-price-item .lp-change span.down { color: #f85149; font-weight: bold; }
+
+  /* بطاقة التنبيه — سعر لحظي */
+  .live-price-tag { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #0a0e14; border-radius: 8px; margin-bottom: 8px; border-right: 3px solid #58a6ff; }
+  .live-price-tag .lp-label { font-size: 10px; color: #8b949e; }
+  .live-price-tag .lp-current { font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold; color: #58a6ff; transition: 0.3s; }
+  .live-price-tag .lp-current.tick-up { color: #3fb950; text-shadow: 0 0 12px #3fb95066; }
+  .live-price-tag .lp-current.tick-down { color: #f85149; text-shadow: 0 0 12px #f8514966; }
+  .live-price-tag .lp-delta { font-size: 11px; font-weight: bold; }
+
+  /* شريط تغير 5 دقائق */
+  .change-5m-bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #0d1117; border-radius: 6px; font-size: 10px; margin-bottom: 8px; border: 1px solid #21262d; }
+  .change-5m-bar .c5-label { color: #8b949e; }
+  .change-5m-bar .c5-val { font-weight: bold; font-family: 'Courier New', monospace; }
+  .change-5m-bar .c5-val.up { color: #3fb950; }
+  .change-5m-bar .c5-val.down { color: #f85149; }
+  .change-5m-bar .c5-val.neutral { color: #8b949e; }
+
+  .alert-card { background: linear-gradient(135deg, #161b22, #0a0e14); border-radius: 12px; padding: 14px; margin-bottom: 10px; border-right: 5px solid #3fb950; position: relative; overflow: hidden; animation: slideIn 0.4s ease-out; }
+  .alert-card.dump { border-right-color: #f85149; }
+  .alert-card.ready { border-right-color: #3fb950; background: linear-gradient(135deg, #0f2a1a, #0a0e14); box-shadow: 0 0 25px #3fb95044; }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+
+  .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
+  .alert-symbol { font-size: 17px; font-weight: bold; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .alert-badge { font-size: 10px; padding: 4px 10px; border-radius: 6px; font-weight: bold; color: white; }
+  .alert-badge.pump { background: linear-gradient(135deg, #238636, #3fb950); }
+  .alert-badge.dump { background: linear-gradient(135deg, #f85149, #d29922); }
+  .alert-badge.ready { background: linear-gradient(135deg, #238636, #3fb950); animation: pulse-badge 1.5s infinite; }
+  .alert-badge.strength-high { background: linear-gradient(135deg, #f85149, #f0b90b); animation: pulse-badge 1s infinite; }
+  @keyframes pulse-badge { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  .alert-time { font-size: 10px; color: #6e7681; }
+
+  .alert-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .metric { background: #0a0e14; padding: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+  .metric-label { color: #8b949e; }
+  .metric-value { font-weight: bold; font-size: 12px; }
+  .metric-value.up { color: #3fb950; }
+  .metric-value.down { color: #f85149; }
+
+  .big-change { text-align: center; padding: 12px; background: #0a0e14; border-radius: 10px; margin-bottom: 10px; }
+  .big-change-value { font-size: 32px; font-weight: bold; line-height: 1; }
+  .big-change-value.up { color: #3fb950; text-shadow: 0 0 20px #3fb95066; }
+  .big-change-value.down { color: #f85149; text-shadow: 0 0 20px #f8514966; }
+  .big-change-value.ready { color: #3fb950; text-shadow: 0 0 20px #3fb95066; }
+  .big-change-label { font-size: 10px; color: #8b949e; margin-top: 4px; }
+
+  .progress-bar { height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s; background: linear-gradient(90deg, #238636, #3fb950); }
+
+  .action-row { display: flex; gap: 6px; margin-top: 10px; }
+  .action-btn { flex: 1; padding: 10px; border-radius: 8px; border: none; color: white; font-weight: bold; font-size: 11px; cursor: pointer; }
+  .action-btn.long { background: linear-gradient(135deg, #238636, #3fb950); }
+  .action-btn.short { background: linear-gradient(135deg, #f85149, #d29922); }
+  .action-btn.chart { background: linear-gradient(135deg, #1f6feb, #58a6ff); }
+  .action-btn.ready { background: linear-gradient(135deg, #238636, #3fb950); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: #8b949e; font-size: 13px; }
+  .empty-state .emoji { font-size: 48px; display: block; margin-bottom: 12px; animation: pulse-emoji 2s infinite; }
+  @keyframes pulse-emoji { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+  .toast { position: fixed; top: 10px; left: 10px; right: 10px; padding: 16px; border-radius: 12px; color: white; font-weight: bold; z-index: 99999; box-shadow: 0 8px 32px rgba(0,0,0,0.6); animation: slideDown 0.3s ease-out; border: 2px solid white; }
+  .toast.pump { background: linear-gradient(135deg, #238636, #3fb950); }
+  .toast.dump { background: linear-gradient(135deg, #f85149, #d29922); }
+  .toast.ready { background: linear-gradient(135deg, #238636, #3fb950); }
+  @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .toast-close { float: left; cursor: pointer; background: rgba(255,255,255,0.3); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+  .flash { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 99998; animation: flashEffect 0.5s ease-out; }
+  .flash.pump { background: radial-gradient(circle, transparent 30%, #3fb95044 100%); }
+  .flash.dump { background: radial-gradient(circle, transparent 30%, #f8514944 100%); }
+  .flash.ready { background: radial-gradient(circle, transparent 30%, #3fb95044 100%); }
+  @keyframes flashEffect { from { opacity: 1; } to { opacity: 0; } }
+
+  .info-box { background: #0d1117; border: 1px solid #30363d; border-radius: 10px; padding: 12px; margin-bottom: 12px; font-size: 11px; line-height: 1.7; color: #8b949e; }
+  .info-box b { color: #e6edf3; }
+
+  footer { text-align: center; font-size: 10px; color: #6e7681; margin-top: 20px; padding-top: 12px; border-top: 1px solid #21262d; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>⚡ كاشف الانفجار — سعر لحظي + قبل الانفجار</h1>
+    <p>Binance Futures • WebSocket لحظي + تحليل 5 دقائق</p>
+  </div>
+
+  <div class="main-tabs">
+    <div class="main-tab active" id="tab1Btn" onclick="switchMainTab(1)">
+      <span class="emoji">⚡</span>
+      <span class="label">اللحظي (Live)</span>
+    </div>
+    <div class="main-tab" id="tab2Btn" onclick="switchMainTab(2)">
+      <span class="emoji">🎯</span>
+      <span class="label">قبل الانفجار</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ التبويبة 1 ═══════════ -->
+  <div class="tab-content active" id="tab1Content">
+    <div class="info-box">
+      <b>⚡ الكشف اللحظي + سعر لحظي:</b> اتصال WebSocket مباشر بـ Binance Futures — يعرض الأسعار المحدثة كل ثانية + كشف انفجارات 2%+ خلال 30 ثانية.
+    </div>
+
+    <!-- لوحة السعر اللحظي -->
+    <div class="live-price-panel">
+      <h3>📡 الأسعار اللحظية (تحديث فوري عبر WebSocket)</h3>
+      <div class="live-price-grid" id="livePriceGrid">
+        <div style="color:#8b949e; font-size:11px; padding:8px;">اضغط "بدء المراقبة" لتشغيل الأسعار اللحظية...</div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div>
+        <span class="live-dot off" id="liveDot1"></span>
+        <span id="statusText1" style="margin-right: 6px;">متوقف</span>
+      </div>
+      <div>
+        <span id="scanCount1">0 فحص</span>
+        <span style="margin: 0 6px; color: #30363d;">|</span>
+        <span id="lastScan1" style="color: #6e7681;">--:--:--</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-start" id="startBtn1" onclick="startLiveScanner()">▶️ بدء المراقبة</button>
+      <button class="btn-stop" id="stopBtn1" onclick="stopLiveScanner()" disabled>⏹️ إيقاف</button>
+    </div>
+
+    <div class="controls">
+      <button class="btn-notif" onclick="enableNotifications()">🔔 تفعيل الإشعارات</button>
+      <button class="btn-test" onclick="testLiveAlert()">🔊 تجربة التنبيه</button>
+    </div>
+
+    <div class="stats-panel">
+      <div class="stat-box">
+        <div class="stat-box-label">🚀 Pump</div>
+        <div class="stat-box-value green" id="pumpCount">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-label">💥 Dump</div>
+        <div class="stat-box-value red" id="dumpCount">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-label">⚡ قوية (3%+)</div>
+        <div class="stat-box-value blue" id="strongCount">0</div>
+      </div>
+    </div>
+
+    <div id="alertsContainer1">
+      <div class="empty-state">
+        <span class="emoji">⚡</span>
+        اضغط "بدء المراقبة" لعرض الأسعار اللحظية وكشف الانفجارات
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ التبويبة 2 ═══════════ -->
+  <div class="tab-content" id="tab2Content">
+    <div class="info-box">
+      <b>🎯 كشف ما قبل الانفجار (نافذة 5 دقائق):</b> يحلل فريم 1 دقيقة لآخر 100 شمعة، ويكشف العملات التي:
+      <br>✅ سعرها قريب من المقاومة (خلال 0.8%)
+      <br>✅ نطاقها منضغط (تقلبات منخفضة)
+      <br>✅ RSI بين 45-70 (صحي للصعود)
+      <br>✅ حجم التداول بدأ يزيد (+10%)
+      <br>✅ شموع ضيقة أو ذيول سفلية (تجميع)
+    </div>
+
+    <div class="status-bar">
+      <div>
+        <span class="live-dot off" id="liveDot2"></span>
+        <span id="statusText2" style="margin-right: 6px;">متوقف</span>
+      </div>
+      <div>
+        <span id="scanCount2">0 فحص</span>
+        <span style="margin: 0 6px; color: #30363d;">|</span>
+        <span id="lastScan2" style="color: #6e7681;">--:--:--</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-start" id="startBtn2" onclick="startPreScanner()">▶️ بدء المراقبة</button>
+      <button class="btn-stop" id="stopBtn2" onclick="stopPreScanner()" disabled>⏹️ إيقاف</button>
+    </div>
+
+    <div class="controls">
+      <button class="btn-notif" onclick="enableNotifications()">🔔 تفعيل الإشعارات</button>
+      <button class="btn-test" onclick="testPreAlert()">🔊 تجربة التنبيه</button>
+    </div>
+
+    <div class="stats-panel single">
+      <div class="stat-box">
+        <div class="stat-box-label">🎯 جاهز للانفجار (خلال 5 دقائق)</div>
+        <div class="stat-box-value green" id="readyCount">0</div>
+      </div>
+    </div>
+
+    <div id="alertsContainer2">
+      <div class="empty-state">
+        <span class="emoji">🎯</span>
+        اضغط "بدء المراقبة" لكشف العملات الجاهزة خلال 5 دقائق
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    ⚡ WebSocket لحظي + تحليل 5 دقائق — للاستخدام التعليمي • ليست نصيحة استثمارية
+  </footer>
+
+<script>
+/* ==========================================================
+   🔄 التبويبات
+   ========================================================== */
+let activeTab = 1;
+function switchMainTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab1Btn').classList.toggle('active', tab === 1);
+  document.getElementById('tab2Btn').classList.toggle('active', tab === 2);
+  document.getElementById('tab1Content').classList.toggle('active', tab === 1);
+  document.getElementById('tab2Content').classList.toggle('active', tab === 2);
+}
+
+/* ==========================================================
+   🎵 الأصوات
+   ========================================================== */
+function playPumpSound() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    [523, 659, 784, 1047, 1319].forEach((freq, i) => {
+      setTimeout(() => {
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; osc.type = 'triangle';
+        gain.gain.setValueAtTime(0.4, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
+      }, i * 100);
+    });
+  } catch(e) {}
+}
+function playDumpSound() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    [1047, 784, 659, 523, 392].forEach((freq, i) => {
+      setTimeout(() => {
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; osc.type = 'sawtooth';
+        gain.gain.setValueAtTime(0.4, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
+      }, i * 100);
+    });
+  } catch(e) {}
+}
+function vibrate(pattern) { if (navigator.vibrate) navigator.vibrate(pattern); }
+
+/* ==========================================================
+   🔔 الإشعارات
+   ========================================================== */
+async function enableNotifications() {
+  if (!('Notification' in window)) { alert('⚠️ المتصفح لا يدعم الإشعارات'); return; }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    alert('✅ تم تفعيل الإشعارات!');
+    new Notification('🔔 إشعارات مفعّلة', { body: 'ستصلك تنبيهات فورية' });
+  } else alert('❌ تم رفض الإذن');
+}
+function sendBrowserNotification(alert, type) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    let emoji = '⚡', label = '';
+    if (type === 'pump') { emoji = '🚀'; label = 'انفجار صاعد'; }
+    else if (type === 'dump') { emoji = '💥'; label = 'انهيار'; }
+    else if (type === 'ready') { emoji = '🎯'; label = 'جاهز للانفجار'; }
+    new Notification(`${emoji} ${label} — ${alert.symbol}`, {
+      body: alert.changePct !== undefined
+        ? `${alert.changePct > 0 ? '+' : ''}${alert.changePct.toFixed(2)}% خلال ${alert.windowSec} ث\nالسعر: $${alert.price}`
+        : `${alert.reason}\nالسعر: $${alert.price}`,
+      tag: alert.symbol + '_' + Date.now(),
+      requireInteraction: true
+    });
+  } catch(e) {}
+}
+
+/* ==========================================================
+   ═══════════════════════════════════════════════════════════
+   📡 WebSocket لحظي — يديره كلا التبويبتين
+   ═══════════════════════════════════════════════════════════
+   ========================================================== */
+let ws = null;
+let wsConnected = false;
+let livePrices = {};       // {symbol: price}
+let prevPrices = {};       // لتحديد اتجاه اللحظة
+let priceHistory5m = {};   // {symbol: [{price, time}]} — نافذة 5 دقائق
+let wsSymbols = [];
+let wsReconnectTimer = null;
+
+function connectWebSocket(symbols) {
+  if (ws) { ws.onclose = null; ws.close(); }
+  wsSymbols = symbols;
+  const streams = symbols.map(s => `${s.toLowerCase()}@aggTrade`).join('/');
+  // aggTrade أخف من trade ويغطي كل الصفقات المجمّعة
+  const url = `wss://fstream.binance.com/stream?streams=${streams}`;
+
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    wsConnected = true;
+    clearTimeout(wsReconnectTimer);
+    console.log('✅ WebSocket متصل —', symbols.length, 'عملة');
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      const d = msg.data;
+      if (!d || d.e !== 'aggTrade') return;
+      const sym = d.s;
+      const price = parseFloat(d.p);
+      const now = Date.now();
+
+      prevPrices[sym] = livePrices[sym] || price;
+      livePrices[sym] = price;
+
+      // احفظ تاريخ 5 دقائق (نقطة كل 5 ثواني كحد أقصى لتوفير الذاكرة)
+      if (!priceHistory5m[sym]) priceHistory5m[sym] = [];
+      const hist = priceHistory5m[sym];
+      if (hist.length === 0 || now - hist[hist.length - 1].time >= 5000) {
+        hist.push({ price, time: now });
+      }
+      const cutoff = now - 5 * 60 * 1000;   // ✅ 5 دقائق
+      while (hist.length > 0 && hist[0].time < cutoff) hist.shift();
+
+      // تحديث عرض السعر في البطاقة إن وُجدت
+      updateAlertCardPrice(sym, price, prevPrices[sym]);
+    } catch(e) {}
+  };
+
+  ws.onclose = () => {
+    wsConnected = false;
+    console.log('🔴 WebSocket انقطع — إعادة اتصال...');
+    wsReconnectTimer = setTimeout(() => connectWebSocket(wsSymbols), 3000);
+  };
+
+  ws.onerror = () => { wsConnected = false; };
+}
+
+/* ==========================================================
+   📊 حساب التغير خلال 5 دقائق
+   ========================================================== */
+function getChange5m(symbol) {
+  const hist = priceHistory5m[symbol];
+  if (!hist || hist.length < 2) return null;
+  const oldest = hist[0].price;
+  const newest = hist[hist.length - 1].price;
+  const changePct = ((newest - oldest) / oldest) * 100;
+  const spanMin = ((hist[hist.length - 1].time - hist[0].time) / 60000).toFixed(1);
+  return { changePct, oldest, newest, spanMin, samples: hist.length };
+}
+
+/* ==========================================================
+   📡 عرض لوحة الأسعار اللحظية
+   ========================================================== */
+function renderLivePricePanel() {
+  const grid = document.getElementById('livePriceGrid');
+  if (!grid) return;
+  if (wsSymbols.length === 0) {
+    grid.innerHTML = '<div style="color:#8b949e; font-size:11px; padding:8px;">اضغط "بدء المراقبة" لتشغيل الأسعار اللحظية...</div>';
+    return;
+  }
+
+  const items = wsSymbols.map(sym => {
+    const price = livePrices[sym];
+    if (price === undefined) return '';
+    const prev = prevPrices[sym] ?? price;
+    const tickUp = price > prev;
+    const tickDown = price < prev;
+    const c5 = getChange5m(sym);
+    const c5Class = !c5 ? 'neutral' : c5.changePct > 0.1 ? 'up' : c5.changePct < -0.1 ? 'down' : 'neutral';
+    const c5Text = c5 ? `${c5.changePct > 0 ? '+' : ''}${c5.changePct.toFixed(2)}% (${c5.spanMin}د)` : '—';
+    const itemClass = tickUp ? 'rising' : tickDown ? 'falling' : '';
+    const priceClass = tickUp ? 'up' : tickDown ? 'down' : '';
+
+    return `
+      <div class="live-price-item ${itemClass}" data-sym="${sym}">
+        <div class="lp-symbol">
+          <span>${sym.replace('USDT','')}</span>
+          <span style="font-size:9px; color:#6e7681;">${tickUp ? '▲' : tickDown ? '▼' : '•'}</span>
+        </div>
+        <div class="lp-price ${priceClass}">$${formatPrice(price)}</div>
+        <div class="lp-change">
+          <span>5د:</span>
+          <span class="${c5Class}">${c5Text}</span>
+        </div>
+      </div>`;
+  }).filter(Boolean).join('');
+
+  grid.innerHTML = items || '<div style="color:#8b949e; font-size:11px; padding:8px;">في انتظار البيانات...</div>';
+}
+
+/* ==========================================================
+   ⚡ التبويبة 1: Live Spike — Top 50
+   ========================================================== */
+const LIVE_CONFIG = {
+  scanInterval: 5000,
+  minChangePct: 2.0,
+  strongChangePct: 3.0,
+  topCount: 50,
+  windowSeconds: 30,
+  maxAlerts: 30,
+  alertCooldown: 60000
+};
+
+let liveIsRunning = false;
+let liveScanTimer = null;
+let liveScanCounter = 0;
+let liveAlerts = [];
+let livePriceHistory = {};
+let liveLastAlertTime = {};
+let liveStats = { pump: 0, dump: 0, strong: 0 };
+let liveSymbolsCache = [];
+
+async function fetchLiveTopSymbols() {
+  try {
+    const res = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+    return data
+      .filter(t => t.symbol.endsWith('USDT'))
+      .filter(t => !t.symbol.includes('UP') && !t.symbol.includes('DOWN'))
+      .filter(t => !t.symbol.includes('BULL') && !t.symbol.includes('BEAR'))
+      .filter(t => parseFloat(t.quoteVolume) > 10000000)
+      .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+      .slice(0, LIVE_CONFIG.topCount)
+      .map(t => t.symbol);
+  } catch (e) { return []; }
+}
+
+async function fetchLivePrices(symbols) {
+  try {
+    const res = await fetch('https://fapi.binance.com/fapi/v1/ticker/price');
+    const data = await res.json();
+    if (!Array.isArray(data)) return null;
+    const prices = {};
+    data.forEach(item => {
+      if (symbols.includes(item.symbol)) prices[item.symbol] = parseFloat(item.price);
+    });
+    return prices;
+  } catch (e) { return null; }
+}
+
+async function fetchLiveVolumeData(symbols) {
+  try {
+    const res = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
+    const data = await res.json();
+    if (!Array.isArray(data)) return null;
+    const vol = {};
+    data.forEach(item => {
+      if (symbols.includes(item.symbol)) {
+        vol[item.symbol] = {
+          volume: parseFloat(item.quoteVolume),
+          count: parseInt(item.count),
+          high: parseFloat(item.highPrice),
+          low: parseFloat(item.lowPrice)
+        };
+      }
+    });
+    return vol;
+  } catch (e) { return null; }
+}
+
+function detectLiveSpikes(prices, volumeData) {
+  const now = Date.now();
+  const detections = [];
+  for (const symbol in prices) {
+    const price = prices[symbol];
+    if (!livePriceHistory[symbol]) livePriceHistory[symbol] = [];
+    livePriceHistory[symbol].push({ price, time: now });
+    const cutoff = now - (LIVE_CONFIG.windowSeconds * 1000);
+    livePriceHistory[symbol] = livePriceHistory[symbol].filter(p => p.time >= cutoff);
+    if (livePriceHistory[symbol].length < 2) continue;
+
+    const oldest = livePriceHistory[symbol][0];
+    const changePct = ((price - oldest.price) / oldest.price) * 100;
+    const absChange = Math.abs(changePct);
+    if (absChange < LIVE_CONFIG.minChangePct) continue;
+    if (liveLastAlertTime[symbol] && (now - liveLastAlertTime[symbol]) < LIVE_CONFIG.alertCooldown) continue;
+
+    const type = changePct > 0 ? 'pump' : 'dump';
+    const timeDiffSec = (now - oldest.time) / 1000;
+    const speed = absChange / Math.max(timeDiffSec, 1);
+
+    let strength = 'normal';
+    if (absChange >= LIVE_CONFIG.strongChangePct * 1.5) strength = 'extreme';
+    else if (absChange >= LIVE_CONFIG.strongChangePct) strength = 'strong';
+
+    const vd = volumeData[symbol] || {};
+    detections.push({
+      symbol, price, oldPrice: oldest.price, changePct, absChange,
+      type, speed, strength, windowSec: timeDiffSec.toFixed(1),
+      volume24h: vd.volume || 0, high24h: vd.high || price, low24h: vd.low || price,
+      time: now
+    });
+    liveLastAlertTime[symbol] = now;
+  }
+  return detections;
+}
+
+function triggerLiveAlert(alert) {
+  const isPump = alert.type === 'pump';
+  if (isPump) playPumpSound(); else playDumpSound();
+  vibrate(isPump ? [200, 100, 200] : [400, 200, 400, 200, 400]);
+  sendBrowserNotification(alert, alert.type);
+  showToast(alert, alert.type);
+  if (alert.strength === 'strong' || alert.strength === 'extreme') showFlash(alert.type);
+
+  liveAlerts.unshift(alert);
+  if (liveAlerts.length > LIVE_CONFIG.maxAlerts) liveAlerts = liveAlerts.slice(0, LIVE_CONFIG.maxAlerts);
+
+  if (isPump) liveStats.pump++; else liveStats.dump++;
+  if (alert.strength === 'strong' || alert.strength === 'extreme') liveStats.strong++;
+
+  renderLiveAlerts();
+  updateLiveStats();
+}
+
+function renderLiveAlerts() {
+  const container = document.getElementById('alertsContainer1');
+  if (liveAlerts.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="emoji">🔍</span>
+        النظام يراقب السوق...
+        <div style="margin-top: 10px; font-size: 11px; color: #6e7681;">
+          في انتظار انفجارات 2%+ خلال ${LIVE_CONFIG.windowSeconds} ثانية
+        </div>
+      </div>`;
+    return;
+  }
+  container.innerHTML = liveAlerts.map(a => renderLiveCard(a)).join('');
+}
+
+function renderLiveCard(alert) {
+  const isPump = alert.type === 'pump';
+  const cls = isPump ? '' : 'dump';
+  const strongCls = (alert.strength === 'strong' || alert.strength === 'extreme') ? 'strong' : '';
+  const badgeCls = isPump ? 'pump' : 'dump';
+  const label = isPump ? '🚀 PUMP' : '💥 DUMP';
+  const timeAgo = getTimeAgo(alert.time);
+  const strengthBadge = alert.strength === 'extreme'
+    ? '<span class="alert-badge strength-high">🔥 EXPLOSIVE</span>'
+    : alert.strength === 'strong'
+    ? '<span class="alert-badge strength-high">⚡ قوية</span>'
+    : '';
+
+  const c5 = getChange5m(alert.symbol);
+  const c5Text = c5 ? `${c5.changePct > 0 ? '+' : ''}${c5.changePct.toFixed(2)}%` : '—';
+  const c5Class = !c5 ? 'neutral' : c5.changePct > 0.1 ? 'up' : c5.changePct < -0.1 ? 'down' : 'neutral';
+
+  return `
+    <div class="alert-card ${cls} ${strongCls}" id="liveCard-${alert.symbol}">
+      <div class="alert-header">
+        <div class="alert-symbol">
+          ${alert.symbol.replace('USDT','')}
+          <span class="alert-badge ${badgeCls}">${label}</span>
+          ${strengthBadge}
+        </div>
+        <div class="alert-time">${timeAgo}</div>
+      </div>
+
+      <!-- 🆕 شريط السعر اللحظي -->
+      <div class="live-price-tag">
+        <span class="lp-label">📡 السعر اللحظي</span>
+        <span class="lp-current" id="livePrice-${alert.symbol}">$${formatPrice(alert.price)}</span>
+      </div>
+
+      <!-- 🆕 شريط تغير 5 دقائق -->
+      <div class="change-5m-bar">
+        <span class="c5-label">⏱️ تغير 5 دقائق:</span>
+        <span class="c5-val ${c5Class}" id="c5-${alert.symbol}">${c5Text}</span>
+      </div>
+
+      <div class="big-change">
+        <div class="big-change-value ${isPump ? 'up' : 'down'}">
+          ${alert.changePct > 0 ? '+' : ''}${alert.changePct.toFixed(2)}%
+        </div>
+        <div class="big-change-label">
+          خلال ${alert.windowSec} ثانية • سرعة ${alert.speed.toFixed(3)}%/ث
+        </div>
+      </div>
+
+      <div class="alert-metrics">
+        <div class="metric"><span class="metric-label">💰 السعر</span><span class="metric-value">$${formatPrice(alert.price)}</span></div>
+        <div class="metric"><span class="metric-label">📊 السابق</span><span class="metric-value">$${formatPrice(alert.oldPrice)}</span></div>
+        <div class="metric"><span class="metric-label">📈 أعلى</span><span class="metric-value up">$${formatPrice(alert.high24h)}</span></div>
+        <div class="metric"><span class="metric-label">📉 أدنى</span><span class="metric-value down">$${formatPrice(alert.low24h)}</span></div>
+      </div>
+
+      <div style="font-size:10px; color:#8b949e; margin-bottom:4px;">
+        💵 حجم 24س: $${formatVolume(alert.volume24h)}
+      </div>
+
+      <div class="action-row">
+        <button class="action-btn chart" onclick="openChart('${alert.symbol}')">📊 الشارت</button>
+        ${isPump
+          ? `<button class="action-btn long" onclick="openFutures('${alert.symbol}')">🟢 Long</button>`
+          : `<button class="action-btn short" onclick="openFutures('${alert.symbol}')">🔴 Short</button>`}
+      </div>
+    </div>`;
+}
+
+/* 🆕 تحديث السعر اللحظي داخل البطاقة + شريط 5 دقائق */
+function updateAlertCardPrice(symbol, newPrice, oldPrice) {
+  const el = document.getElementById(`livePrice-${symbol}`);
+  if (el) {
+    el.textContent = '$' + formatPrice(newPrice);
+    el.classList.remove('tick-up', 'tick-down');
+    if (newPrice > oldPrice) el.classList.add('tick-up');
+    else if (newPrice < oldPrice) el.classList.add('tick-down');
+    setTimeout(() => el.classList.remove('tick-up', 'tick-down'), 400);
+  }
+  const c5El = document.getElementById(`c5-${symbol}`);
+  if (c5El) {
+    const c5 = getChange5m(symbol);
+    if (c5) {
+      c5El.textContent = `${c5.changePct > 0 ? '+' : ''}${c5.changePct.toFixed(2)}%`;
+      c5El.className = 'c5-val ' + (c5.changePct > 0.1 ? 'up' : c5.changePct < -0.1 ? 'down' : 'neutral');
+    }
+  }
+}
+
+async function runLiveScan() {
+  liveScanCounter++;
+  document.getElementById('scanCount1').textContent = liveScanCounter + ' فحص';
+  document.getElementById('lastScan1').textContent = new Date().toLocaleTimeString('ar-EG');
+
+  try {
+    if (liveSymbolsCache.length === 0 || liveScanCounter % 20 === 1) {
+      liveSymbolsCache = await fetchLiveTopSymbols();
+      // 🆕 أعد ربط WebSocket عند تحديث العملات
+      if (liveSymbolsCache.length > 0) {
+        if (wsSymbols.length === 0) connectWebSocket(liveSymbolsCache);
+        else if (liveSymbolsCache.some(s => !wsSymbols.includes(s))) {
+          const merged = [...new Set([...wsSymbols, ...liveSymbolsCache])].slice(0, 80);
+          connectWebSocket(merged);
+        }
+      }
+    }
+    if (liveSymbolsCache.length === 0) return;
+    const prices = await fetchLivePrices(liveSymbolsCache);
+    if (!prices) return;
+    const volumeData = await fetchLiveVolumeData(liveSymbolsCache);
+    const detections = detectLiveSpikes(prices, volumeData);
+    detections.forEach(d => triggerLiveAlert(d));
+  } catch (e) { console.error('خطأ Live:', e); }
+}
+
+async function startLiveScanner() {
+  if (liveIsRunning) return;
+  document.getElementById('startBtn1').disabled = true;
+  document.getElementById('stopBtn1').disabled = false;
+  document.getElementById('liveDot1').classList.remove('off');
+  document.getElementById('statusText1').textContent = '🟢 يعمل';
+  document.getElementById('statusText1').style.color = '#3fb950';
+
+  liveAlerts = [];
+  livePriceHistory = {};
+  liveLastAlertTime = {};
+  liveStats = { pump: 0, dump: 0, strong: 0 };
+  updateLiveStats();
+  renderLiveAlerts();
+
+  liveIsRunning = true;
+  liveSymbolsCache = await fetchLiveTopSymbols();
+
+  // 🆕 شغّل WebSocket فوراً
+  if (liveSymbolsCache.length > 0) connectWebSocket(liveSymbolsCache);
+
+  await runLiveScan();
+  liveScanTimer = setInterval(runLiveScan, LIVE_CONFIG.scanInterval);
+
+  // 🆕 أعد رسم لوحة الأسعار اللحظية كل ثانية
+  if (window.livePanelTimer) clearInterval(window.livePanelTimer);
+  window.livePanelTimer = setInterval(renderLivePricePanel, 1000);
+}
+
+function stopLiveScanner() {
+  if (!liveIsRunning) return;
+  liveIsRunning = false;
+  clearInterval(liveScanTimer);
+  liveScanTimer = null;
+  if (window.livePanelTimer) { clearInterval(window.livePanelTimer); window.livePanelTimer = null; }
+  // أغلق WebSocket فقط إذا لم تكن التبويبة 2 تعمل
+  if (!preIsRunning && ws) { ws.onclose = null; ws.close(); ws = null; wsConnected = false; wsSymbols = []; }
+  document.getElementById('startBtn1').disabled = false;
+  document.getElementById('stopBtn1').disabled = true;
+  document.getElementById('liveDot1').classList.add('off');
+  document.getElementById('statusText1').textContent = '⏸️ متوقف';
+  document.getElementById('statusText1').style.color = '#8b949e';
+  document.getElementById('livePriceGrid').innerHTML =
+    '<div style="color:#8b949e; font-size:11px; padding:8px;">توقف المراقبة</div>';
+}
+
+function updateLiveStats() {
+  document.getElementById('pumpCount').textContent = liveStats.pump;
+  document.getElementById('dumpCount').textContent = liveStats.dump;
+  document.getElementById('strongCount').textContent = liveStats.strong;
+}
+
+function testLiveAlert() {
+  const fakePump = {
+    symbol: 'BTCUSDT', price: 68000.50, oldPrice: 66000.00,
+    changePct: 3.03, absChange: 3.03, type: 'pump',
+    speed: 0.6, strength: 'strong', windowSec: '5.0',
+    volume24h: 5000000000, high24h: 68500, low24h: 65000, time: Date.now()
+  };
+  triggerLiveAlert(fakePump);
+  setTimeout(() => {
+    const fakeDump = { ...fakePump, type: 'dump', changePct: -2.5, symbol: 'ETHUSDT', strength: 'normal' };
+    triggerLiveAlert(fakeDump);
+  }, 3000);
+}
+
+/* ==========================================================
+   🎯 التبويبة 2: Pre-Breakout — فريم 1 دقيقة + نافذة 5 دقائق
+   ========================================================== */
+const PRE_CONFIG = {
+  scanInterval: 15000,
+  topCount: 50,
+  maxAlerts: 30,
+  alertCooldown: 180000,
+  proximityPct: 0.8,
+  minRangeContraction: 0.6,
+  minRsi: 45,
+  maxRsi: 70,
+  minVolumeRatio: 1.1,
+  window5m: 5 * 60 * 1000   // ✅ نافذة 5 دقائق
+};
+
+let preIsRunning = false;
+let preScanTimer = null;
+let preScanCounter = 0;
+let preAlerts = [];
+let preLastAlertTime = {};
+let preStats = { ready: 0 };
+let preSymbolsCache = [];
+
+async function fetchPreTopSymbols() {
+  try {
+    const res = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+    return data
+      .filter(t => t.symbol.endsWith('USDT'))
+      .filter(t => !t.symbol.includes('UP') && !t.symbol.includes('DOWN'))
+      .filter(t => !t.symbol.includes('BULL') && !t.symbol.includes('BEAR'))
+      .filter(t => parseFloat(t.quoteVolume) > 5000000)
+      .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+      .slice(0, PRE_CONFIG.topCount)
+      .map(t => t.symbol);
+  } catch (e) { return []; }
+}
+
+// 🆕 فريم 1 دقيقة بدلاً من 5 دقائق — أدق للحركة القريبة
+async function fetchPreKlines(symbol, limit = 100) {
+  try {
+    const res = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1m&limit=${limit}`);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length < 30) return null;
+    return data;
+  } catch (e) { return null; }
+}
+
+function calcRSI(closes, period = 14) {
+  if (!closes || closes.length < period + 1) return 50;
+  let gains = 0, losses = 0;
+  for (let i = closes.length - period; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  const avgGain = gains / period, avgLoss = losses / period;
+  if (avgLoss === 0) return 100;
+  return 100 - (100 / (1 + avgGain / avgLoss));
+}
+
+// 🆕 حساب تغير 5 دقائق من شمعات 1m
+function change5mFromKlines(klines) {
+  if (!klines || klines.length < 6) return null;
+  const closes = klines.map(k => parseFloat(k[4]));
+  const now = closes[closes.length - 1];
+  const fiveMinAgo = closes[closes.length - 6];
+  const changePct = ((now - fiveMinAgo) / fiveMinAgo) * 100;
+  return changePct;
+}
+
+function analyzePreBreakout(klines, symbol) {
+  if (!klines || klines.length < 30) return null;
+
+  const closes = klines.map(k => parseFloat(k[4]));
+  const highs  = klines.map(k => parseFloat(k[2]));
+  const lows   = klines.map(k => parseFloat(k[3]));
+  const opens  = klines.map(k => parseFloat(k[1]));
+  const vols   = klines.map(k => parseFloat(k[5]));
+
+  const price = closes[closes.length - 1];
+
+  // ✅ مقاومة خلال آخر 20 دقيقة (فريم 1m)
+  const lookback = 20;
+  const resistance = Math.max(...highs.slice(-lookback - 1, -1));
+  const support    = Math.min(...lows.slice(-lookback - 1, -1));
+
+  const distanceToResistance = ((resistance - price) / price) * 100;
+
+  const range10 = (Math.max(...highs.slice(-10)) - Math.min(...lows.slice(-10))) / price;
+  const range20 = (Math.max(...highs.slice(-30, -10)) - Math.min(...lows.slice(-30, -10))) / price;
+  const compressionRatio = range10 / (range20 || 1);
+
+  const rsi = calcRSI(closes, 14);
+
+  const avgVol20 = vols.slice(-30, -10).reduce((a,b)=>a+b,0) / 20;
+  const recentVol10 = vols.slice(-10).reduce((a,b)=>a+b,0) / 10;
+  const volumeRatio = recentVol10 / (avgVol20 || 1);
+
+  let tightCandles = 0;
+  for (let i = closes.length - 15; i < closes.length; i++) {
+    const range = (highs[i] - lows[i]) / (lows[i] || 1);
+    if (range < 0.005) tightCandles++;
+  }
+
+  let lowerWicks = 0;
+  for (let i = closes.length - 15; i < closes.length; i++) {
+    const range = highs[i] - lows[i];
+    const lowerWick = Math.min(closes[i], opens[i]) - lows[i];
+    if (range > 0 && lowerWick / range > 0.5) lowerWicks++;
+  }
+
+  const change5m = change5mFromKlines(klines);
+
+  const nearResistance = distanceToResistance > -0.5 && distanceToResistance <= PRE_CONFIG.proximityPct * 2;
+  const isCompressed = compressionRatio < PRE_CONFIG.minRangeContraction;
+  const rsiHealthy = rsi >= PRE_CONFIG.minRsi && rsi <= PRE_CONFIG.maxRsi;
+  const volumeOk = volumeRatio >= PRE_CONFIG.minVolumeRatio;
+  const accumulation = tightCandles >= 3 || lowerWicks >= 4;
+
+  if (nearResistance && isCompressed && rsiHealthy && volumeOk && accumulation) {
+    return {
+      symbol, price, resistance, support,
+      distanceToResistance: distanceToResistance.toFixed(2),
+      compressionRatio: compressionRatio.toFixed(2),
+      rsi: rsi.toFixed(1),
+      volumeRatio: volumeRatio.toFixed(2),
+      tightCandles, lowerWicks,
+      change5m: change5m !== null ? change5m.toFixed(2) : null,   // 🆕
+      level: 'ready',
+      levelLabel: '🎯 جاهز للانفجار',
+      levelColor: '#3fb950',
+      reason: 'قريب من مقاومة + ضغط + RSI صحي + حجم يزيد',
+      progressPct: 95, conditionsMet: 5,
+      time: Date.now()
+    };
+  }
+  return null;
+}
+
+function triggerPreAlert(alert) {
+  playPumpSound();
+  vibrate([200, 100, 200, 100, 300]);
+  sendBrowserNotification(alert, 'ready');
+  showToast(alert, 'ready');
+  showFlash('ready');
+  preAlerts.unshift(alert);
+  if (preAlerts.length > PRE_CONFIG.maxAlerts) preAlerts = preAlerts.slice(0, PRE_CONFIG.maxAlerts);
+  preStats.ready++;
+  renderPreAlerts();
+  updatePreStats();
+}
+
+function renderPreAlerts() {
+  const container = document.getElementById('alertsContainer2');
+  if (preAlerts.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="emoji">🔍</span>
+        النظام يراقب السوق...
+        <div style="margin-top: 10px; font-size: 11px; color: #6e7681;">
+          يبحث عن العملات الجاهزة خلال 5 دقائق (5/5 معايير)
+        </div>
+      </div>`;
+    return;
+  }
+  container.innerHTML = preAlerts.map(a => renderPreCard(a)).join('');
+}
+
+function renderPreCard(alert) {
+  const timeAgo = getTimeAgo(alert.time);
+  const c5Val = alert.change5m !== null ? `${alert.change5m > 0 ? '+' : ''}${alert.change5m}%` : '—';
+  const c5Class = alert.change5m !== null ? (alert.change5m > 0.1 ? 'up' : alert.change5m < -0.1 ? 'down' : 'neutral') : 'neutral';
+
+  return `
+    <div class="alert-card ready" id="preCard-${alert.symbol}">
+      <div class="alert-header">
+        <div class="alert-symbol">
+          ${alert.symbol.replace('USDT','')}
+          <span class="alert-badge ready">🎯 جاهز للانفجار</span>
+        </div>
+        <div class="alert-time">${timeAgo}</div>
+      </div>
+
+      <!-- 🆕 سعر لحظي -->
+      <div class="live-price-tag">
+        <span class="lp-label">📡 السعر اللحظي</span>
+        <span class="lp-current" id="livePrice-${alert.symbol}">$${formatPrice(alert.price)}</span>
+      </div>
+
+      <!-- 🆕 تغير 5 دقائق -->
+      <div class="change-5m-bar">
+        <span class="c5-label">⏱️ تغير 5 دقائق:</span>
+        <span class="c5-val ${c5Class}" id="c5-${alert.symbol}">${c5Val}</span>
+      </div>
+
+      <div class="big-change">
+        <div class="big-change-value ready">🎯 ${alert.conditionsMet}/5 معايير</div>
+        <div class="big-change-label">${alert.reason}</div>
+        <div class="progress-bar">
+          <div class="progress-bar-fill" style="width: ${alert.progressPct}%"></div>
+        </div>
+      </div>
+
+      <div class="alert-metrics">
+        <div class="metric"><span class="metric-label">💰 السعر</span><span class="metric-value">$${formatPrice(alert.price)}</span></div>
+        <div class="metric"><span class="metric-label">🎯 المقاومة</span><span class="metric-value up">$${formatPrice(alert.resistance)}</span></div>
+        <div class="metric"><span class="metric-label">📏 المسافة</span><span class="metric-value">${alert.distanceToResistance}%</span></div>
+        <div class="metric"><span class="metric-label">🗜️ الانضغاط</span><span class="metric-value">${alert.compressionRatio}</span></div>
+        <div class="metric"><span class="metric-label">⚡ RSI</span><span class="metric-value">${alert.rsi}</span></div>
+        <div class="metric"><span class="metric-label">📊 الحجم</span><span class="metric-value">×${alert.volumeRatio}</span></div>
+        <div class="metric"><span class="metric-label">🕯️ شموع ضيقة</span><span class="metric-value">${alert.tightCandles}</span></div>
+        <div class="metric"><span class="metric-label">🔄 ذيول سفلية</span><span class="metric-value">${alert.lowerWicks}</span></div>
+      </div>
+
+      <div style="font-size:10px; color:#8b949e; margin-bottom:4px; padding:8px; background:#0a0e14; border-radius:6px; border-right:3px solid #3fb950;">
+        💡 <b>الخطوة:</b> جهّز أمر شراء فوق المقاومة ($${formatPrice(alert.resistance)}) — احتمال انفجار خلال دقائق
+      </div>
+
+      <div class="action-row">
+        <button class="action-btn chart" onclick="openChart('${alert.symbol}')">📊 الشارت</button>
+        <button class="action-btn ready" onclick="openFutures('${alert.symbol}')">⚡ فتح Futures</button>
+      </div>
+    </div>`;
+}
+
+async function runPreScan() {
+  preScanCounter++;
+  document.getElementById('scanCount2').textContent = preScanCounter + ' فحص';
+  document.getElementById('lastScan2').textContent = new Date().toLocaleTimeString('ar-EG');
+
+  try {
+    if (preSymbolsCache.length === 0 || preScanCounter % 20 === 1) {
+      preSymbolsCache = await fetchPreTopSymbols();
+      // 🆕 اشترك في WebSocket للعملات الجديدة
+      if (preSymbolsCache.length > 0) {
+        if (wsSymbols.length === 0) connectWebSocket(preSymbolsCache);
+        else {
+          const merged = [...new Set([...wsSymbols, ...preSymbolsCache])].slice(0, 80);
+          if (merged.length !== wsSymbols.length) connectWebSocket(merged);
+        }
+      }
+    }
+    if (preSymbolsCache.length === 0) return;
+
+    const batchSize = 5;
+    for (let i = 0; i < preSymbolsCache.length; i += batchSize) {
+      const batch = preSymbolsCache.slice(i, i + batchSize);
+      const results = await Promise.all(batch.map(s => fetchPreKlines(s, 100)));
+
+      results.forEach((klines, idx) => {
+        if (!klines) return;
+        const symbol = batch[idx];
+        const analysis = analyzePreBreakout(klines, symbol);
+        if (!analysis) return;
+
+        const now = Date.now();
+        if (preLastAlertTime[symbol] && (now - preLastAlertTime[symbol]) < PRE_CONFIG.alertCooldown) return;
+        preLastAlertTime[symbol] = now;
+        triggerPreAlert(analysis);
+      });
+
+      await new Promise(res => setTimeout(res, 500));
+    }
+  } catch (e) { console.error('خطأ Pre:', e); }
+}
+
+async function startPreScanner() {
+  if (preIsRunning) return;
+  document.getElementById('startBtn2').disabled = true;
+  document.getElementById('stopBtn2').disabled = false;
+  document.getElementById('liveDot2').classList.remove('off');
+  document.getElementById('statusText2').textContent = '🟢 يعمل';
+  document.getElementById('statusText2').style.color = '#3fb950';
+
+  preAlerts = [];
+  preLastAlertTime = {};
+  preStats = { ready: 0 };
+  updatePreStats();
+  renderPreAlerts();
+
+  preIsRunning = true;
+  preSymbolsCache = await fetchPreTopSymbols();
+
+  // 🆕 اشترك WebSocket لعرض السعر اللحظي داخل بطاقات Pre
+  if (preSymbolsCache.length > 0) {
+    if (wsSymbols.length === 0) connectWebSocket(preSymbolsCache);
+    else {
+      const merged = [...new Set([...wsSymbols, ...preSymbolsCache])].slice(0, 80);
+      connectWebSocket(merged);
+    }
+  }
+
+  await runPreScan();
+  preScanTimer = setInterval(runPreScan, PRE_CONFIG.scanInterval);
+
+  // 🆕 مؤقت لتحديث السعر داخل بطاقات Pre كل ثانية
+  if (window.prePanelTimer) clearInterval(window.prePanelTimer);
+  window.prePanelTimer = setInterval(() => {
+    preAlerts.forEach(a => {
+      const lp = livePrices[a.symbol];
+      if (lp) updateAlertCardPrice(a.symbol, lp, a.price);
+    });
+  }, 1000);
+}
+
+function stopPreScanner() {
+  if (!preIsRunning) return;
+  preIsRunning = false;
+  clearInterval(preScanTimer);
+  preScanTimer = null;
+  if (window.prePanelTimer) { clearInterval(window.prePanelTimer); window.prePanelTimer = null; }
+  if (!liveIsRunning && ws) { ws.onclose = null; ws.close(); ws = null; wsConnected = false; wsSymbols = []; }
+  document.getElementById('startBtn2').disabled = false;
+  document.getElementById('stopBtn2').disabled = true;
+  document.getElementById('liveDot2').classList.add('off');
+  document.getElementById('statusText2').textContent = '⏸️ متوقف';
+  document.getElementById('statusText2').style.color = '#8b949e';
+}
+
+function updatePreStats() {
+  document.getElementById('readyCount').textContent = preStats.ready;
+}
+
+function testPreAlert() {
+  const fakeReady = {
+    symbol: 'LINKUSDT', price: 145.20, resistance: 146.50,
+    distanceToResistance: '0.89', compressionRatio: '0.55',
+    rsi: '58.2', volumeRatio: '1.25', tightCandles: 5, lowerWicks: 4,
+    change5m: '1.35',
+    level: 'ready', levelLabel: '🎯 جاهز للانفجار',
+    levelColor: '#3fb950', reason: 'السعر قريب + ضغط + RSI + حجم',
+    progressPct: 95, conditionsMet: 5, time: Date.now()
+  };
+  triggerPreAlert(fakeReady);
+}
+
+/* ==========================================================
+   🎨 Helpers
+   ========================================================== */
+function formatPrice(n) {
+  if (n >= 1000) return n.toFixed(2);
+  if (n >= 1) return n.toFixed(4);
+  if (n >= 0.01) return n.toFixed(5);
+  return n.toFixed(8);
+}
+function formatVolume(n) {
+  if (n >= 1000000000) return (n/1000000000).toFixed(2) + 'B';
+  if (n >= 1000000) return (n/1000000).toFixed(2) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(2) + 'K';
+  return n.toFixed(2);
+}
+function getTimeAgo(timestamp) {
+  const diff = Math.floor((Date.now() - timestamp) / 1000);
+  if (diff < 60) return `منذ ${diff} ث`;
+  if (diff < 3600) return `منذ ${Math.floor(diff/60)} د`;
+  return `منذ ${Math.floor(diff/3600)} س`;
+}
+
+function showToast(alert, type) {
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  let emoji = '⚡', title = '';
+  if (alert.type === 'pump') { emoji = '🚀'; title = 'انفجار صاعد'; }
+  else if (alert.type === 'dump') { emoji = '💥'; title = 'انهيار'; }
+  else { emoji = '🎯'; title = 'جاهز للانفجار'; }
+
+  let body = '';
+  if (alert.changePct !== undefined) {
+    body = `<div style="font-size:20px; text-align:center; margin:6px 0;">${alert.changePct > 0 ? '+' : ''}${alert.changePct.toFixed(2)}%</div>
+            <div style="font-size:11px; opacity:0.9; text-align:center;">خلال ${alert.windowSec} ث • $${formatPrice(alert.price)}</div>`;
+  } else {
+    body = `<div style="font-size:14px; text-align:center; margin:6px 0;">${alert.conditionsMet}/5 معايير</div>
+            <div style="font-size:11px; opacity:0.9; text-align:center;">${alert.reason}</div>`;
+  }
+
+  toast.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <div style="font-size:15px;">${emoji} ${alert.symbol} — ${title}</div>
+      <div class="toast-close" onclick="this.parentElement.parentElement.remove()">×</div>
+    </div>
+    ${body}`;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s';
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 10000);
+}
+
+function showFlash(type) {
+  const flash = document.createElement('div');
+  flash.className = 'flash ' + type;
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 500);
+}
+
+function openChart(symbol) { window.open(`https://www.binance.com/en/futures/${symbol}`, '_blank'); }
+function openFutures(symbol) { window.open(`https://www.binance.com/en/futures/${symbol}`, '_blank'); }
+
+/* ==========================================================
+   🔄 التهيئة
+   ========================================================== */
+document.addEventListener('DOMContentLoaded', () => {
+  updateLiveStats();
+  updatePreStats();
+  renderLiveAlerts();
+  renderPreAlerts();
+
+  window.addEventListener('beforeunload', (e) => {
+    if (liveIsRunning || preIsRunning) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  if ('Notification' in window && Notification.permission === 'default') {
+    setTimeout(() => {
+      if (confirm('🔔 هل تريد تفعيل الإشعارات الفورية؟')) Notification.requestPermission();
+    }, 2000);
+  }
+});
+</script>
+</body>
+</html>
